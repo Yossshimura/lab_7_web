@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Викторина - Асинхронная обработка</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #e74c3c;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h2>Участие в викторине (асинхронная обработка)</h2>
+    <p><strong>Очередь:</strong> Kafka (вариант 13 - нечётный)</p>
+    
+    <form id="quizForm">
+        <div class="form-group">
+            <label>Имя:</label>
+            <input type="text" name="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Возраст:</label>
+            <input type="number" name="age" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Тема викторины:</label>
+            <select name="topic">
+                <option value="IT">IT и программирование</option>
+                <option value="history">История</option>
+                <option value="science">Наука</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label><input type="checkbox" name="prize"> Хочу получить приз</label>
+        </div>
+        
+        <div class="form-group">
+            <label>Сложность:</label><br>
+            <label><input type="radio" name="difficulty" value="easy"> Лёгкая</label><br>
+            <label><input type="radio" name="difficulty" value="medium"> Средняя</label><br>
+            <label><input type="radio" name="difficulty" value="hard"> Сложная</label>
+        </div>
+        
+        <button type="submit">Отправить</button>
+    </form>
+    
+    <div id="result" style="display:none;"></div>
+    
+    <hr>
+    <p><a href="index.php">📊 Посмотреть статистику очередей</a></p>
+    
+    <script>
+        document.getElementById('quizForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            formData.append('queue_type', 'kafka');
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = '';
+            resultDiv.innerHTML = '⏳ Отправка...';
+            
+            try {
+                const response = await fetch('send.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = data.message;
+                    document.getElementById('quizForm').reset();
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = data.message;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ Ошибка при отправке: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

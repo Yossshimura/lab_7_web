@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  php:
+    build: .
+    container_name: lab7_php
+    volumes:
+      - ./www:/var/www/html
+    expose:
+      - "9000"
+    depends_on:
+      - rabbitmq
+      - kafka
+    networks:
+      - lab7_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: lab7_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./www:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - lab7_network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: lab7_rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - lab7_network
+
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    container_name: lab7_zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    networks:
+      - lab7_network
+
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: lab7_kafka
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_ENABLE_KRAFT=no
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+    depends_on:
+      - zookeeper
+    networks:
+      - lab7_network
+
+networks:
+  lab7_network:
+    driver: bridge
