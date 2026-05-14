@@ -2,104 +2,39 @@
 require_once 'vendor/autoload.php';
 require_once 'QueueManager.php';
 
-$queue = new QueueManager('kafka');
+$selectedType = $_GET['type'] ?? 'kafka';
+$queue = new QueueManager($selectedType);
 $stats = $queue->getStats();
 
-$mainLogs = [];
-$errorLogs = [];
+$logFile = 'processed_' . date('Y-m-d') . '.log';
+$mainLogs = file_exists($logFile) ? array_reverse(array_slice(file($logFile), 0, 20)) : [];
 
-if (file_exists('processed_' . date('Y-m-d') . '.log')) {
-    $mainLogs = file('processed_' . date('Y-m-d') . '.log');
-    $mainLogs = array_reverse(array_slice($mainLogs, 0, 20));
-}
-
-if (file_exists('error_log.log')) {
-    $errorLogs = file('error_log.log');
-    $errorLogs = array_reverse(array_slice($errorLogs, 0, 20));
-}
+$errorLogFile = 'error_log.log';
+$errorLogs = file_exists($errorLogFile) ? array_reverse(array_slice(file($errorLogFile), 0, 20)) : [];
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Статистика очередей - Kafka</title>
+    <title>Статистика очередей</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 30px auto;
-            padding: 20px;
-        }
-        .stats {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: #f4f4f4;
-            padding: 20px;
-            border-radius: 8px;
-            flex: 1;
-            text-align: center;
-        }
-        .stat-card h3 {
-            margin: 0 0 10px 0;
-            color: #2c3e50;
-        }
-        .stat-number {
-            font-size: 48px;
-            font-weight: bold;
-            color: #e74c3c;
-        }
-        .log-section {
-            margin-bottom: 30px;
-        }
-        .log-section h3 {
-            background: #2c3e50;
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .log-entry {
-            background: #f8f9fa;
-            padding: 8px;
-            margin: 5px 0;
-            border-left: 3px solid #2c3e50;
-            font-family: monospace;
-            font-size: 12px;
-            word-break: break-all;
-        }
-        .error-entry {
-            border-left-color: #e74c3c;
-            background: #fdf0f0;
-        }
-        button {
-            background: #2c3e50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 10px 0;
-        }
-        button:hover {
-            background: #e74c3c;
-        }
-        nav a {
-            display: inline-block;
-            margin: 10px 10px 0 0;
-            padding: 10px 15px;
-            background: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-        }
-        nav a:hover {
-            background: #2980b9;
-        }
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 30px auto; padding: 20px; }
+        .stats { display: flex; gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: #f4f4f4; padding: 20px; border-radius: 8px; flex: 1; text-align: center; }
+        .stat-number { font-size: 48px; font-weight: bold; color: #e74c3c; }
+        .log-entry { background: #f8f9fa; padding: 8px; margin: 5px 0; border-left: 3px solid #2c3e50; font-family: monospace; font-size: 12px; }
+        .error-entry { border-left-color: #e74c3c; background: #fdf0f0; }
+        button, .btn { background: #2c3e50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; }
+        button:hover, .btn:hover { background: #e74c3c; }
+        .active { background: #e74c3c; }
     </style>
 </head>
 <body>
-    <h1>📊 Статистика очередей (Kafka)</h1>
+    <h1>📊 Статистика очередей</h1>
+    
+    <div>
+        <a href="?type=kafka" class="btn <?= $selectedType === 'kafka' ? 'active' : '' ?>">Kafka (Ваш вариант)</a>
+        <a href="?type=rabbitmq" class="btn <?= $selectedType === 'rabbitmq' ? 'active' : '' ?>">RabbitMQ (Штрафное)</a>
+    </div>
     
     <div class="stats">
         <div class="stat-card">
@@ -114,20 +49,18 @@ if (file_exists('error_log.log')) {
         </div>
     </div>
     
-    <nav>
-        <a href="form.html">➕ Новая заявка</a>
-        <a href="index.php">🔄 Обновить статистику</a>
-    </nav>
+    <div>
+        <a href="form.html" class="btn">➕ Новая заявка</a>
+        <a href="?type=<?= $selectedType ?>" class="btn">🔄 Обновить статистику</a>
+    </div>
     
     <div class="log-section">
-        <h3>📋 Последние успешно обработанные заявки (сегодня)</h3>
+        <h3>📋 Последние успешно обработанные заявки</h3>
         <?php if (empty($mainLogs)): ?>
             <p>Нет обработанных заявок за сегодня</p>
         <?php else: ?>
             <?php foreach ($mainLogs as $log): ?>
-                <div class="log-entry">
-                    <?= htmlspecialchars($log) ?>
-                </div>
+                <div class="log-entry"><?= htmlspecialchars($log) ?></div>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
@@ -136,19 +69,20 @@ if (file_exists('error_log.log')) {
     <div class="log-section">
         <h3>⚠️ Последние ошибки обработки</h3>
         <?php foreach ($errorLogs as $log): ?>
-            <div class="log-entry error-entry">
-                <?= htmlspecialchars($log) ?>
-            </div>
+            <div class="log-entry error-entry"><?= htmlspecialchars($log) ?></div>
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
     
     <hr>
     <h3>🎛 Управление worker'ом</h3>
-    <p>Для запуска обработчика выполните в командной строке:</p>
+    <p>Для запуска обработчика выполните:</p>
     <pre style="background: #2c3e50; color: #fff; padding: 10px; border-radius: 4px;">
+# Для Kafka (ваш вариант)
 docker exec -it lab7_php php worker.php kafka
+
+# Для RabbitMQ (штрафное задание)
+docker exec -it lab7_php php worker.php rabbitmq
     </pre>
-    <p><small>Worker должен работать постоянно. Для остановки нажмите Ctrl+C.</small></p>
 </body>
 </html>
